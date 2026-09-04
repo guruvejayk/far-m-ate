@@ -1,0 +1,12 @@
+{
+  "name": "FAR[M]ATE: AI Agrochemical Inspector & Plant Doctor",
+  "description": "Multilingual voice-enabled AI agro-input safety & verification system with counterfeit detection, verified product recommendations, safe usage workflows, and offline field support.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
