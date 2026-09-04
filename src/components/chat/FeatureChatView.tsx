@@ -379,20 +379,38 @@ Recommendation: Do not spray unverified agrochemicals. Open the Agricultural Cou
             ? `ନକଲି କୃଷି ଉତ୍ପାଦ ଯାଞ୍ଚ: ବୋତଲ କ୍ୟାପ୍ ଉପରେ ଥିବା ୩-ଡି ହୋଲୋଗ୍ରାମ ଏବଂ ଲେବଲରେ CIBRC ସରକାରୀ ପଞ୍ଜିକରଣ ନମ୍ବର ଯାଞ୍ଚ କରନ୍ତୁ। ବ୍ୟାଚ୍ ଯାଞ୍ଚ ନ ହେବା ପର୍ଯ୍ୟନ୍ତ ଜମିରେ ସ୍ପ୍ରେ କରନ୍ତୁ ନାହିଁ।`
             : `Agricultural Counterfeit Detection: Please verify that your product carton has a kinetic diffractive 3D hologram, valid CIBRC registration number under Section 9(3), and FCO compliance for fertilizers. If the batch is unverified, do not apply.`;
         }
+      } else if (feature === 'recommendation') {
+        fallbackText = language === 'or'
+          ? `କୃଷି ଔଷଧ ସୁପାରିଶ: CIBRC ଅନୁମୋଦିତ ଜୈବିକ ଔଷଧ ଯଥା ଟ୍ରାଇକୋଡର୍ମା ଭିରିଡି (୪୫ଗ୍ରା/୧୫ଲି ଟାଙ୍କି) କିମ୍ବା ନିମ୍ବ ତେଲ (୩୫ମିଲି/୧୫ଲି ଟାଙ୍କି) ପ୍ରୟୋଗ କରନ୍ତୁ। ସ୍ପ୍ରେୟାର ଟାଙ୍କି ମାପ (୫L ରୁ ୨୦୦L) ଅନୁଯାୟୀ ସଠିକ୍ ମାତ୍ରା ହିସାବ କରାଯାଇପାରିବ।`
+          : `Input Recommendation Advisory: For your ${context.crop || 'crop'}, we recommend verified CIBRC biological formulations such as Kisan BioShield Trichoderma viride 1.5% WP (@ 45g per 15L tank) or EcoNeem Gold 10K (@ 35ml per 15L tank). For precise multi-tank dilution math (5L, 10L, 12L, 15L, 16L, 20L, or 200L), please state your sprayer tank size.`;
       }
 
       const agentMsgId = `agent-${Date.now()}`;
-      const fallbackActions = language === 'or'
-        ? [
-            'ଏହି ଔଷଧକୁ ସୁରକ୍ଷିତ ଭାବେ କିପରି ସ୍ପ୍ରେ କରିବି?',
-            '୧୫ ଲିଟର ଟାଙ୍କି ମାତ୍ରା ହିସାବ କରନ୍ତୁ',
-            'ବୋତଲ ହୋଲୋଗ୍ରାମ ଯାଞ୍ଚ କରନ୍ତୁ',
-          ]
-        : [
-            'How to safely apply this product?',
-            'Check 15L tank dilution rate',
-            'Inspect bottle hologram',
-          ];
+      let fallbackActions = [
+        'How to safely apply this product?',
+        'Check 15L tank dilution rate',
+        'Inspect bottle hologram',
+      ];
+
+      if (feature === 'counterfeit') {
+        fallbackActions = [
+          'Inspect bottle 3D hologram',
+          'Verify CIBRC registration number',
+          'Test FMC Coragen batch',
+        ];
+      } else if (feature === 'recommendation') {
+        fallbackActions = [
+          'Calculate 15L knapsack tank dose',
+          'Calculate for 20L power sprayer',
+          'Check tank mix compatibility',
+        ];
+      } else if (feature === 'pest') {
+        fallbackActions = [
+          'Diagnose leaf spots or yellowing',
+          'Show bio-fungicide options',
+          'Calculate 15L knapsack dose',
+        ];
+      }
       const agentReply: Message = {
         id: agentMsgId,
         sender: 'agent',

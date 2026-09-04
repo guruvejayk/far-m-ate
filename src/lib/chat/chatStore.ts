@@ -15,7 +15,7 @@ export interface ChatMessage {
   translations?: Partial<Record<LanguageCode, string>>;
 }
 
-const STORAGE_KEY = 'farmate_feature_chat_histories_v2';
+const STORAGE_KEY = 'farmate_feature_chat_histories_v3';
 const inMemoryCache: Record<string, ChatMessage[]> = {};
 
 /**

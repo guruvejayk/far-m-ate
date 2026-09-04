@@ -18,6 +18,7 @@ import {
   findVerifiedInputs,
   VerifiedAgrochemicalInput,
 } from '../src/data/recommendationDatasets';
+import { getLocalizedFeatureChat } from '../src/data/featureChatTranslations';
 
 export interface FarmContext {
   crop?: string;
@@ -96,14 +97,17 @@ MANDATORY RESPONSE & FORMATTING RULES:
    - If soil type is NOT specified, and the farmer is asking for instructions regarding fertilizer dosage, soil application, or irrigation frequency, politely ask the farmer what soil type their crop is growing in (e.g. black cotton, red loam, alluvial, sandy loam) so you can give the exact tailored nutrient schedule!
 9. VERIFIED RECOMMENDATIONS, STRICT CONDITIONAL MIXING & MULTI-TANK MATH:
    - Verified Formulations Only: Suggest ONLY verified, genuine products registered under CIBRC Section 9(3)/9(3B) or FCO 1985 biostimulants/fertilizers. Never suggest unverified, spurious, or banned chemicals.
-   - Strict Conditional Mixing & Dilution: When recommending products to a farmer, state the verified product name, active ingredient, and a concise 1-sentence reason why it works. DO NOT output chemical mixing steps, dilution formulas, or tank preparation instructions unless the farmer specifically asks for instructions, mixing details, or calculations! This keeps initial recommendation messages concise, digestible, and focused.
-   - Choice Prompt: Always conclude product recommendations with a clear, polite choice question:
+   - Dynamic & Comprehensive Question Answering: In the Recommendation System, answer ANY question asked by the farmer accurately, scientifically, and directly:
+     * If the farmer asks for a product recommendation for any crop or disease (e.g. Tomato, Rice, Wheat, Cotton, Chilli, Potato, etc.), provide the verified CIBRC/FCO inputs for that crop with brand, active ingredient, and a concise 1-sentence rationale.
+     * If the farmer asks for tank calculations or mixing instructions (e.g. for 5L, 10L, 12L, 15L, 16L, 20L, 200L or any volume), calculate the exact dosage, water volume, and number of tanks per acre.
+     * If the farmer asks about tank mix compatibility (e.g. mixing neem with copper, mixing bio-fungicides with chemical fungicides), explain compatibility rules and jar test procedures clearly.
+     * If the farmer asks about mixing order/procedure, explain the standard bucket pre-dissolving and W-A-L-E-S tank filling order.
+     * If the farmer asks about fertilizer schedules, N-P-K ratios, basal vs top-dressing, or micronutrients, provide the recommended schedule based on soil and crop stage.
+     * If the farmer asks about Pre-Harvest Intervals (PHI), waiting periods, or re-entry times, state the exact statutory safety intervals.
+     * If the farmer asks any other recommendation question, answer THAT specific question with scientific accuracy. DO NOT repeat the same static response for different questions!
+   - Strict Conditional Mixing & Dilution: When recommending products to a farmer who hasn't asked for mixing steps or tank math yet, state the verified product name, active ingredient, and a concise 1-sentence reason why it works. DO NOT output chemical mixing steps, dilution formulas, or tank preparation instructions unless the farmer specifically asks for instructions, mixing details, or calculations!
+   - Choice Prompt: Conclude initial product recommendations with a clear, polite choice question:
      "Would you like the mixing instructions or dosage calculations for your sprayer tank? If so, tell me your sprayer tank capacity (such as 5L, 10L, 12L, 15L, 16L, 20L, or 200L) and I will calculate the exact quantity for your tank."
-   - Multi-Tank Calculations on Demand: If the farmer asks for instructions, says yes, or specifies a tank size (or asks for various tanks):
-     1. Provide the exact calculated dosage for their requested tank capacity (or provide the calculations across various common tanks: 5L handheld, 10L compact, 12L battery, 15L standard, 16L knapsack, 20L power sprayer, 200L tractor drum).
-     2. Give clear, step-by-step mixing directions (pre-dissolving in a small bucket first, adding to a half-filled tank, then topping up with clean water).
-     3. State compatible and incompatible tank-mix combinations.
-     4. Specify required PPE and safety precautions.
 10. CROSS-CHAT SHARED AGRONOMIC MEMORY & RECENT SCANS CONTINUITY:
     All AI feature chats (Pest Doctor, Counterfeit Sentinel, and Recommendation System) share a unified real-time memory.
     - When the farmer is in the Recommendation AI chat (or any chat) and asks:
@@ -117,6 +121,13 @@ MANDATORY RESPONSE & FORMATTING RULES:
     - If the farmer in Pest Doctor asks if their recently verified product can be used, reference the recent packaging verification status.
 11. STRICT SPECIALIZED FEATURE ROLE ENFORCEMENT & ANTI-CROSS-CALLING:
     Every feature AI chat has a dedicated, non-overlapping domain and MUST maintain strict boundaries:
+    - Feature-Specific Greetings & Welcome Messages:
+      When the farmer sends a greeting (such as "hi", "hello", "hey", "namaste", "good morning"):
+      * Counterfeit Sentinel (VERIFY-X): Greet concisely ONLY as the Counterfeit & Packaging Verification Assistant. Invite the farmer to verify container packaging, 3D holograms, CIBRC numbers, or batch codes. NEVER mention foliar diseases or spraying math!
+      * Plant Doctor / Pest Diagnostic: Greet concisely ONLY as the Pest Doctor & Plant Pathology specialist. Invite the farmer to upload a leaf photo or describe crop symptoms to diagnose foliar diseases and pests. NEVER mention bottle holograms!
+      * Recommendation AI: Greet concisely ONLY as the Input Recommendation & Sprayer Math Advisor. Invite the farmer to name their crop, disease, or sprayer tank capacity (5L, 10L, 12L, 15L, 16L, 20L, 200L) for verified inputs and dilution math.
+      * Gazette / Banned Registry: Greet concisely ONLY as the Statutory Gazette Sentinel for banned agrochemicals.
+      Always keep greetings under 3 sentences!
     - Counterfeit Sentinel (VERIFY-X) (activeFeature === 'counterfeit'):
       Focuses exclusively on agrochemical packaging, bottle labels, 3D holograms, QR/barcodes, CIBRC Section 9(3) validity, FCO compliance, batch numbers, manufacturer legitimacy, and genuine vs fake chemical packaging.
       CRITICAL BOUNDARY: NEVER diagnose crop pathology, plant diseases, foliar leaf spots, or insect pests. NEVER call a crop, leaf, insect pest, beneficial animal, or human "counterfeit"!
@@ -201,12 +212,16 @@ Language requested: ${language}
 
     // Retrieve verified recommendations grounded in CIBRC & FCO (1985)
     let groundedRecContext = '';
-    const targetCropForRec = context.recentPestDiagnosis?.crop || context.crop;
-    const targetIssueForRec = context.recentPestDiagnosis?.diseaseName || context.diagnosedDisease || message;
+    const cropSearchMatch = message.match(/\b(Tomato|Rice|Paddy|Cotton|Wheat|Maize|Corn|Chilli|Pepper|Potato|Soybean|Sugarcane|Tea|Coffee|Mango|Banana|Citrus|Orange|Lime|Grapes|Apple|Groundnut|Peanut|Mustard|Chickpea|Gram|Pigeon Pea|Arhar|Onion|Garlic|Brinjal|Eggplant|Cabbage|Cauliflower|Finger Millet|Ragi)\b/i);
+    const targetCropForRec = cropSearchMatch ? cropSearchMatch[0] : (context.recentPestDiagnosis?.crop || context.crop || '');
+
+    const issueSearchMatch = message.match(/\b(Early Blight|Late Blight|Blight|Blast|Rust|Root Rot|Damping Off|Fusarium Wilt|Wilt|Powdery Mildew|Downy Mildew|Stem Borer|Bollworm|Leaf Curl|Mite|Aphid|Whitefly|Thrips|Mealybug|Caterpillar|Anthracnose|Canker)\b/i);
+    const targetIssueForRec = issueSearchMatch ? issueSearchMatch[0] : (context.recentPestDiagnosis?.diseaseName || context.diagnosedDisease || '');
+
     const matchingVerifiedInputs = findVerifiedInputs(targetCropForRec, targetIssueForRec);
     if (matchingVerifiedInputs.length > 0) {
       const topInputs = matchingVerifiedInputs.slice(0, 4);
-      groundedRecContext = `\n\n[VERIFIED RECOMMENDATION CATALOG (CIBRC Major Uses & FCO 1985)]:
+      groundedRecContext = `\n\n[VERIFIED RECOMMENDATION CATALOG (CIBRC Major Uses & FCO 1985 for ${targetCropForRec || 'Agriculture'})]:
 ${topInputs
   .map(
     (inp) =>
@@ -230,11 +245,33 @@ ${topInputs
   .join('\n')}`;
     }
 
+    const trimmedMsg = message.trim();
+    const userIsGreeting = /^(hi|hello|hey|namaste|vanakkam|namaskaram|good morning|good afternoon|good evening|hlo|hii+)(\b|[!.,? ]|$)/i.test(trimmedMsg);
     const userIsAskingForInstructionsOrMixing = /mix|mixing|how to mix|instruction|dosage|dose|how much|calculate|tank|dilution|various|5l|10l|12l|15l|16l|20l|200l|litre|liter|knapsack|sprayer/i.test(message);
+    const userIsAskingCompatibility = /compatib|can i mix|mix together|mix with|combine|jar test/i.test(message);
+    const userIsAskingFertilizer = /fertilizer|npk|urea|dap|mop|nutrition|nutrient|zinc|boron|calcium|foliar spray/i.test(message);
+    const userIsAskingIntervals = /pre-harvest|phi|waiting period|re-entry|rei|safety interval/i.test(message);
 
-    const recommendationDirective = userIsAskingForInstructionsOrMixing
-      ? `\n\n[DIRECTIVE: The farmer IS asking for mixing instructions, dosage, or tank calculations. Provide the exact dosage calculations for their specified tank size or for various common tanks (5L, 10L, 12L, 15L, 16L, 20L, 200L) along with clear, step-by-step mixing instructions and compatible mixes. Keep it clean and direct without extra filler.]`
-      : `\n\n[DIRECTIVE: The farmer has NOT asked for mixing instructions or tank calculations yet. State ONLY the recommended verified product name, active ingredient, and a concise 1-sentence reason why it works. DO NOT provide mixing steps, dilution formulas, or tank dosage math in this response. Conclude with a choice question asking if the farmer wants mixing instructions or dosage calculations for their sprayer tank, mentioning 5L, 10L, 12L, 15L, 16L, 20L, or 200L options.]`;
+    let recommendationDirective = '';
+    if (context.activeFeature === 'recommendation') {
+      if (userIsGreeting) {
+        recommendationDirective = `\n\n[DIRECTIVE - RECOMMENDATION CHAT GREETING: The farmer is greeting. Greet back concisely and specifically as the Input Recommendation & Sprayer Math Advisor. Invite the farmer to name their crop or disease for verified CIBRC/FCO recommendations, or specify their sprayer tank capacity (5L, 10L, 12L, 15L, 16L, 20L, 200L) for exact dilution calculations.]`;
+      } else if (userIsAskingCompatibility) {
+        recommendationDirective = `\n\n[DIRECTIVE - TANK MIX COMPATIBILITY: Answer the farmer's tank mix compatibility question directly and scientifically. Explain compatible mixtures (e.g. bio-fungicides with neem oil and seaweed extract) and strictly incompatible mixtures (e.g. never mix living bio-fungicides like Trichoderma or Pseudomonas with copper fungicides or chemical bactericides; do not mix copper with acidic foliar fertilizers). Explain the 1-litre jar test procedure.]`;
+      } else if (userIsAskingFertilizer) {
+        recommendationDirective = `\n\n[DIRECTIVE - FERTILIZER & NUTRITION: Answer the fertilizer and crop nutrition question directly. Provide recommended N-P-K schedules, basal vs top-dressing splits, and water-soluble foliar micronutrient applications (e.g. 19:19:19, Chelated Zinc, Boron) based on soil and crop stage.]`;
+      } else if (userIsAskingIntervals) {
+        recommendationDirective = `\n\n[DIRECTIVE - SAFETY INTERVALS: Answer the Pre-Harvest Interval (PHI) and Re-Entry Interval (REI) question directly. Detail the required waiting period before harvest for the requested product/crop.]`;
+      } else if (userIsAskingForInstructionsOrMixing) {
+        recommendationDirective = `\n\n[DIRECTIVE - TANK DOSAGE & MIXING MATH: The farmer is asking for tank calculations or mixing instructions. Calculate and provide the exact dosage for their specified tank size or for various common tanks (5L, 10L, 12L, 15L, 16L, 20L, 200L). Provide water volume per acre (~165L), number of tanks required, and step-by-step mixing sequence (pre-dissolving WP in bucket first, half filling tank, adding liquid, topping up).]`;
+      } else {
+        recommendationDirective = `\n\n[DIRECTIVE - VERIFIED INPUT ADVISORY: Answer the farmer's specific recommendation question directly. If they asked for product recommendations for a crop or disease, state verified CIBRC/FCO registered products with active ingredient and a concise rationale. Offer to calculate the exact dosage for their sprayer tank capacity (5L, 10L, 12L, 15L, 16L, 20L, or 200L). If they asked any other agronomic question, answer that specific question directly and accurately.]`;
+      }
+    } else if (context.activeFeature === 'counterfeit' && userIsGreeting) {
+      recommendationDirective = `\n\n[DIRECTIVE - COUNTERFEIT SENTINEL GREETING: The farmer is greeting. Greet back concisely as the Agricultural Counterfeit Sentinel (VERIFY-X). Invite them to verify a bottle photo, 3D hologram, batch number, or CIBRC registration. Do not discuss foliar diseases or spraying math.]`;
+    } else if (context.activeFeature === 'pest' && userIsGreeting) {
+      recommendationDirective = `\n\n[DIRECTIVE - PEST DOCTOR GREETING: The farmer is greeting. Greet back concisely as the Pest Doctor & Plant Pathology specialist. Invite them to upload a leaf photo or describe crop symptoms to diagnose foliar diseases and pests. Do not discuss bottle holograms.]`;
+    }
 
     const userIsAskingAboutRecentPestScan = /recent scan|most recent scan|pest detector|pest detection|previous scan|diagnosed problem|last scan|recent problem|what was diagnosed|what should i use for the problem/i.test(message);
 
@@ -312,6 +349,40 @@ INSTRUCTIONS:
           'Switch to Counterfeit Detector',
           'Diagnose leaf spots',
           'Check beneficial insects',
+        ],
+      };
+    }
+
+    // 2. Strict Feature-Specific Personalized Greetings
+    const trimmedMsgLower = (message || '').trim().toLowerCase();
+    const isGreetingQuery =
+      /^(hi|hello|hey|namaste|namaskar|namaskaar|vanakkam|namaskaram|good morning|good afternoon|good evening|hlo|hii+|greetings|radhe radhe|ram ram|नमस्ते|నమస్కారం|வணக்கம்|ନମସ୍କାର)(\b|[!.,? ]|$)/i.test(
+        trimmedMsgLower
+      ) || /^(hi|hello|hey|namaste|namaskar|नमस्ते|నమస్కారం|வணக்கம்|ନମସ୍କାର)$/i.test(trimmedMsgLower);
+
+    if (isGreetingQuery && !imageBase64) {
+      if (context.activeFeature) {
+        const chatData = getLocalizedFeatureChat(context.activeFeature, language as any);
+        if (chatData && chatData.initialMessages && chatData.initialMessages.length > 0) {
+          const initMsg = chatData.initialMessages[0];
+          return {
+            text: initMsg.text,
+            context,
+            source: 'farmate-rules',
+            quickActions: initMsg.quickActions || chatData.starters,
+          };
+        }
+      }
+
+      return {
+        text: `Hello! I am FAR[M]ATE, your AI agricultural companion. I can help you diagnose crop pests and diseases, verify agrochemical packaging and 3D holograms, or calculate verified input recommendations and sprayer tank dosages. How can I help your farm today?`,
+        context,
+        source: 'farmate-rules',
+        quickActions: [
+          'Diagnose leaf symptoms',
+          'Verify bottle 3D hologram',
+          'Calculate 15L knapsack tank dose',
+          'Check Banned Chemical List',
         ],
       };
     }
@@ -1466,6 +1537,73 @@ Return ONLY valid JSON matching this schema:
 
   private fallbackChat(message: string, context: FarmContext, language: string, imageBase64?: string) {
     const lower = message.toLowerCase();
+    const trimmed = message.trim();
+    const isGreeting = /^(hi|hello|hey|namaste|vanakkam|namaskaram|good morning|good afternoon|good evening|hlo|hii+|greetings)(\b|[!.,? ]|$)/i.test(trimmed) || /^(hi|hello|hey|namaste)$/i.test(lower);
+
+    // Feature-Specific Personalized Greetings
+    if (isGreeting && !imageBase64) {
+      if (context.activeFeature === 'counterfeit') {
+        return {
+          text: `Hello! I am your Counterfeit Detection & Batch Verification Assistant (VERIFY-X). Upload a photo of your pesticide container or enter a batch number, CIBRC registration number, or product name to verify 3D holograms, optical seals, and genuine manufacturer credentials.`,
+          context,
+          source: 'farmate-rules',
+          quickActions: [
+            'Inspect bottle 3D hologram',
+            'Verify CIBRC registration number',
+            'Test FMC Coragen batch',
+            'Check counterfeit warning signs',
+          ],
+        };
+      }
+      if (context.activeFeature === 'pest') {
+        return {
+          text: `Hello! I am your Pest Doctor and Crop Health Specialist. Describe your crop symptoms or upload a leaf photo to diagnose diseases, identify insect pests, and receive immediate organic or IPM treatments.`,
+          context,
+          source: 'farmate-rules',
+          quickActions: [
+            'Diagnose leaf spots or yellowing',
+            'Paddy Stem Borer remedy',
+            'Chilli Leaf Curl & Mites control',
+            'Identify beneficial farm insects',
+          ],
+        };
+      }
+      if (context.activeFeature === 'recommendation') {
+        return {
+          text: `Hello! I am your Input Recommendation & Sprayer Math Advisor. Tell me your crop, targeted pest/disease, or sprayer tank size (5L, 10L, 12L, 15L, 16L, 20L, or 200L) to get CIBRC-verified input recommendations and precise dilution math.`,
+          context,
+          source: 'farmate-rules',
+          quickActions: [
+            'Verified inputs for my crop',
+            'Calculate 15L knapsack tank dose',
+            'Show dose for various tanks (5L to 200L)',
+            'Check tank mix compatibility',
+          ],
+        };
+      }
+      if (context.activeFeature === 'registry') {
+        return {
+          text: `Hello! I am your Statutory Gazette & Banned Chemicals Advisor. Ask me about prohibited pesticides under the Insecticides Act 1968, gazette restriction orders, or approved legal biological alternatives.`,
+          context,
+          source: 'farmate-rules',
+          quickActions: [
+            'Check Monocrotophos ban on vegetables',
+            'Endosulfan statutory prohibition',
+            'Show approved biological alternatives',
+          ],
+        };
+      }
+      return {
+        text: `Hello! I am FAR[M]ATE, your AI agricultural companion. How may I assist your crop health, disease diagnosis, product verification, or sprayer dosage today?`,
+        context,
+        source: 'farmate-rules',
+        quickActions: [
+          'Diagnose crop leaf symptoms',
+          'Verify pesticide authenticity',
+          'Calculate sprayer tank dosage',
+        ],
+      };
+    }
 
     // 0. VISUAL IMAGE FORENSIC INSPECTION HANDLER (Counterfeit / Verification)
     if (imageBase64 && (context.activeFeature === 'counterfeit' || lower.includes('counterfeit') || lower.includes('fake') || lower.includes('verify') || lower.includes('check') || lower.includes('inspect') || lower.includes('genuine') || lower.includes('bottle') || lower.includes('package') || lower.includes('image') || lower.includes('snapshot') || lower.includes('uploaded'))) {
@@ -1920,7 +2058,132 @@ Always demand genuine CIBRC-registered biological formulations with green toxici
       };
     }
 
-    // 11. Multi-Tank Dosage & Mixing Calculations on Demand
+    // 11. Tank Mix Compatibility
+    if (lower.includes('compatib') || lower.includes('can i mix') || lower.includes('mix together') || lower.includes('mix with') || lower.includes('combine') || lower.includes('jar test')) {
+      return {
+        text: `Agrochemical & Biological Tank Mix Compatibility Guidelines:
+
+1. Compatible Combinations (Safe to Tank-Mix):
+- Bio-fungicides (Trichoderma viride 1.5% WP, Pseudomonas fluorescens 1.0% WP) CAN be safely mixed with Neem oil (Azadirachtin 10,000 PPM), Seaweed extract biostimulants, and Potassium humate.
+- Synthetic insecticides (e.g. Chlorantraniliprole 18.5% SC) are generally compatible with non-copper protectant fungicides.
+
+2. Incompatible Combinations (STRICTLY FORBIDDEN):
+- NEVER mix living bio-fungicides (Trichoderma or Pseudomonas) with Copper fungicides (Copper Hydroxide, Copper Oxychloride) or chemical bactericides (Streptocycline). Copper and bactericides immediately destroy living beneficial biocontrol spores. Maintain at least a 5 to 7 day interval between applications.
+- Do NOT mix Copper Hydroxide with acidic foliar fertilizers (e.g. MAP / MKP) or organophosphates to prevent heavy metal precipitation and foliar phytotoxicity.
+
+3. Standard 1-Litre Jar Test Procedure:
+Before preparing a full sprayer tank, mix proportional amounts of both chemicals in a clean 1-litre glass container with water. Stir and wait 15 minutes. If curdling, sedimentation, gas formation, or temperature rise occurs, do NOT tank-mix.`,
+        context,
+        source: 'farmate-recommendation-engine',
+        quickActions: [
+          'Calculate 15L knapsack tank dose',
+          'How to mix chemicals step by step',
+          'Check CIBRC verified products',
+        ],
+      };
+    }
+
+    // 12. Mixing Order & Procedure (W-A-L-E-S sequence)
+    if (lower.includes('mixing order') || lower.includes('how to mix') || lower.includes('mixing sequence') || lower.includes('mixing procedure') || lower.includes('step by step mix')) {
+      return {
+        text: `Standard Sprayer Tank Mixing Order (W-A-L-E-S Protocol):
+
+1. Water: Fill the sprayer tank halfway (50%) with clean, particulate-free water.
+2. Wettable Powders & Granules (WP / WDG): Pre-dissolve measured powder (e.g. Trichoderma or Copper Hydroxide) in a clean plastic bucket with 1-2 litres of water. Pour through the sprayer tank inlet filter mesh.
+3. Agitation: Stir or agitate gently for 30 seconds to disperse powders evenly.
+4. Liquids & Suspension Concentrates (SC / SL): Add liquid flowable formulations (e.g. Coragen or Azoxystrobin).
+5. Emulsifiable Concentrates (EC) & Oils: Add oil-based formulations (e.g. Neem oil Azadirachtin) next.
+6. Surfactants & Stickers: Add wetting agents or non-ionic stickers last.
+7. Top-Up: Add clean water to reach the full tank capacity mark (e.g. 15L or 20L) and agitate.
+8. Safety: Always wear chemical-resistant nitrile gloves, eye goggles, and a protective mask during mixing.`,
+        context,
+        source: 'farmate-recommendation-engine',
+        quickActions: [
+          'Calculate 15L knapsack tank dose',
+          'Check Tank Mix Compatibility',
+          'Safe spraying weather timing',
+        ],
+      };
+    }
+
+    // 13. Fertilizer & NPK Crop Nutrition
+    if (lower.includes('fertilizer') || lower.includes('npk') || lower.includes('urea') || lower.includes('dap') || lower.includes('mop') || lower.includes('nutrition') || lower.includes('nutrient') || lower.includes('zinc') || lower.includes('boron') || lower.includes('foliar spray')) {
+      return {
+        text: `Agronomic Nutrient Management & Foliar Nutrition Schedule:
+
+1. Soil-Applied Basal & Top-Dressing (STCR Package of Practices):
+- Basal Application: Apply 100% of Phosphorus (DAP or SSP) and 100% of Potash (MOP), together with 30% of total Nitrogen (Urea) at final land preparation or transplanting.
+- Top-Dressing Splits: Apply the remaining Nitrogen in two equal splits: 1st split at active tillering / vegetative branching (25-30 days), and 2nd split at flowering / panicle initiation (45-50 days).
+
+2. Foliar Water-Soluble Boosters (per 15L Knapsack Tank):
+- Vegetative Vigor: 19:19:19 (Water Soluble) @ 75g per 15L tank (5g/L).
+- Flower Retention & Fruit Set: 0:52:34 (MKP) @ 75g per 15L tank + Boron 20% @ 15g per 15L tank (1g/L).
+- Grain Filling & Fruit Sizing: 13:0:45 (Potassium Nitrate) @ 75g per 15L tank.
+- Micronutrient Chlorosis: Chelated Zinc 12% EDTA @ 15g per 15L tank.
+
+Spray early in the morning or late evening when stomata are open and temperatures are below 30°C.`,
+        context,
+        source: 'farmate-recommendation-engine',
+        quickActions: [
+          'Calculate 15L knapsack tank dose',
+          'Verified bio-fertilizers list',
+          'Check safe tank mix compatibility',
+        ],
+      };
+    }
+
+    // 14. Safety Intervals (Pre-Harvest Interval & Re-Entry Interval)
+    if (lower.includes('pre-harvest') || lower.includes('phi') || lower.includes('waiting period') || lower.includes('re-entry') || lower.includes('rei') || lower.includes('harvest interval')) {
+      return {
+        text: `Statutory Pre-Harvest (PHI) & Re-Entry (REI) Intervals:
+
+1. Pre-Harvest Interval (PHI): The mandatory minimum number of days that must elapse between the last agrochemical spray and crop harvesting to ensure pesticide residues are below statutory Maximum Residue Limits (MRL):
+- Biological Biostimulants & Bio-Pesticides (Trichoderma, Pseudomonas, Neem 10K): 0 Days PHI (Residue-free).
+- Contact Protectants (Copper Hydroxide 77% WP): 3 to 5 Days PHI.
+- Systemic Insecticides (Chlorantraniliprole 18.5% SC): 14 Days PHI on food crops.
+- Systemic Fungicides (Azoxystrobin 23% SC): 7 to 10 Days PHI.
+
+2. Re-Entry Interval (REI): The minimum waiting period before workers can safely re-enter treated fields without full PPE:
+- Biological Formulations: 4 Hours.
+- Synthetic Agrochemicals: 24 to 48 Hours.
+
+Never harvest, consume, or transport produce to market before the statutory PHI waiting period has expired.`,
+        context,
+        source: 'farmate-recommendation-engine',
+        quickActions: [
+          'Calculate 15L knapsack tank dose',
+          'Check Banned Chemical List',
+          'View CIBRC verified products',
+        ],
+      };
+    }
+
+    // 15. Water Requirement & Acreage Calibration
+    if (lower.includes('water requirement') || lower.includes('water volume') || lower.includes('per acre') || lower.includes('how many tanks') || lower.includes('how much water')) {
+      return {
+        text: `Field Spray Water Volume & Knapsack Tank Calibration per Acre:
+
+1. Standard Water Requirements by Sprayer Type:
+- 15L / 16L Manual or Battery Knapsack: 150 to 180 Litres water per acre for mature canopy coverage (approx. 10 to 12 tanks per acre).
+- 20L Motorized Power Mist Blower: 120 to 150 Litres water per acre (approx. 6 to 8 tanks per acre).
+- 200L Tractor Boom Sprayer: 200 to 250 Litres water per acre (approx. 1 to 1.25 drums per acre).
+
+2. Calculation Formula:
+- Number of Tanks = Total Required Spray Volume (e.g. 165L/acre) ÷ Sprayer Tank Capacity (e.g. 15L) = 11 tanks per acre.
+- Total Product Needed = Tank Chemical Dose × Number of Tanks.
+
+Always ensure uniform droplet coverage on both upper and lower leaf surfaces without excessive runoff.`,
+        context,
+        source: 'farmate-recommendation-engine',
+        quickActions: [
+          'Calculate for 15L Knapsack',
+          'Calculate for 20L Power Sprayer',
+          'Show dose for various litre tanks',
+        ],
+      };
+    }
+
+    // 16. Multi-Tank Dosage & Mixing Calculations on Demand
     if (lower.includes('various') || lower.includes('tank') || lower.includes('5l') || lower.includes('10l') || lower.includes('12l') || lower.includes('15l') || lower.includes('16l') || lower.includes('20l') || lower.includes('200l') || lower.includes('mix') || lower.includes('instruction') || lower.includes('dosage') || lower.includes('how much') || lower.includes('dilution')) {
       let requestedTank = 15;
       if (lower.includes('5l')) requestedTank = 5;
@@ -2002,22 +2265,66 @@ Step-by-Step Mixing Instructions:
       };
     }
 
-    // 12. Concise Product Recommendations (Without Dumping Chemical Mixing Unless Asked)
-    if (lower.includes('recommend') || lower.includes('product') || lower.includes('option') || lower.includes('what should i use') || lower.includes('suggest') || context.activeFeature === 'recommendation') {
-      const cropName = context.crop || 'Field Crop';
-      return {
-        text: `CIBRC & FCO Verified Inputs for ${cropName}:
-1. Kisan BioShield Trichoderma viride 1.5% WP (Active Ingredient: Trichoderma viride, CIBRC Reg: CIR-89240/2021). A natural biological shield against root rot, damping-off, and early blight with zero toxic residue and 0-day Pre-Harvest Interval.
-2. EcoNeem Gold 10K (Active Ingredient: Azadirachtin 10,000 PPM, CIBRC Reg: CIR-44120/2019). Botanical broad-spectrum repellent for sucking pests, aphids, and whiteflies with green toxicity triangle safety.
-3. GreenGuard Bio-Bactericide (Active Ingredient: Pseudomonas fluorescens 1.0% WP, CIBRC Reg: CIR-77142/2020). Protects against bacterial leaf blight, blast, and wilt while stimulating root growth.
+    // 17. Crop-Specific & Verified Input Recommendations
+    const cropSearch = message.match(/\b(Tomato|Rice|Paddy|Cotton|Wheat|Maize|Corn|Chilli|Pepper|Potato|Soybean|Sugarcane|Tea|Coffee|Mango|Banana|Citrus|Orange|Lime|Grapes|Apple|Groundnut|Peanut|Mustard|Chickpea|Gram|Pigeon Pea|Arhar|Onion|Garlic|Brinjal|Eggplant|Cabbage|Cauliflower|Finger Millet|Ragi)\b/i);
+    const targetCrop = cropSearch ? cropSearch[0] : (context.recentPestDiagnosis?.crop || context.crop || '');
+
+    const issueSearch = message.match(/\b(Early Blight|Late Blight|Blight|Blast|Rust|Root Rot|Damping Off|Fusarium Wilt|Wilt|Powdery Mildew|Downy Mildew|Stem Borer|Bollworm|Leaf Curl|Mite|Aphid|Whitefly|Thrips|Mealybug|Caterpillar|Anthracnose|Canker)\b/i);
+    const targetIssue = issueSearch ? issueSearch[0] : (context.recentPestDiagnosis?.diseaseName || context.diagnosedDisease || '');
+
+    const isRecQuery = lower.includes('recommend') || lower.includes('product') || lower.includes('option') || lower.includes('what should i use') || lower.includes('suggest') || lower.includes('verified input') || lower.includes('what to spray') || lower.includes('remedy') || lower.includes('treatment');
+
+    if (isRecQuery || (context.activeFeature === 'recommendation' && (targetCrop || targetIssue))) {
+      const inputs = findVerifiedInputs(targetCrop, targetIssue);
+      const cropLabel = targetCrop ? targetCrop : 'Field Crops';
+      const issueLabel = targetIssue ? ` for ${targetIssue}` : '';
+
+      if (inputs.length > 0) {
+        const topList = inputs.slice(0, 3);
+        const productLines = topList.map((inp, idx) => {
+          return `${idx + 1}. ${inp.name} (Brand: ${inp.brand}, Active: ${inp.activeIngredient}, CIBRC Reg: ${inp.cibrcRegNumber}). Dose: ${inp.dosagePer15LTank}. Registered for ${inp.problemAddressed}.`;
+        }).join('\n\n');
+
+        return {
+          text: `CIBRC & FCO Verified Inputs for ${cropLabel}${issueLabel}:
+
+${productLines}
 
 Would you like the mixing instructions or dosage calculations for your sprayer tank? If so, tell me your sprayer tank capacity (such as 5L, 10L, 12L, 15L, 16L, 20L, or 200L) and I will calculate the exact quantity for your tank.`,
-        context: { ...context, recommendedProduct: 'Trichoderma viride 1.5% WP & EcoNeem Gold 10K' },
-        source: 'farmate-rules',
+          context: {
+            ...context,
+            crop: targetCrop || context.crop,
+            diagnosedDisease: targetIssue || context.diagnosedDisease,
+            recommendedProduct: topList[0]?.name || context.recommendedProduct,
+          },
+          source: 'farmate-recommendation-engine',
+          quickActions: [
+            'Yes, calculate for 15L knapsack tank',
+            'Calculate for 20L power sprayer',
+            'Check tank mix compatibility',
+          ],
+        };
+      }
+    }
+
+    // 18. Recommendation Feature Capability Overview (When in recommendation chat and general question asked)
+    if (context.activeFeature === 'recommendation') {
+      return {
+        text: `FAR[M]ATE Recommendation & Sprayer Math Advisor:
+
+I provide comprehensive CIBRC & FCO registered input recommendations and precision sprayer math. How can I assist you?
+
+1. Verified Inputs: Name your crop or disease to view registered formulations, active ingredients, and label claims.
+2. Sprayer Math: Ask for exact dosage calculations for 5L, 10L, 12L, 15L, 16L, 20L, or 200L sprayer tanks.
+3. Tank Compatibility: Ask if specific chemicals, fungicides, or bio-pesticides can be safely tank-mixed.
+4. Fertilizer Schedules: Ask about basal vs top-dressing splits, NPK ratios, and foliar micronutrients.`,
+        context,
+        source: 'farmate-recommendation-engine',
         quickActions: [
-          'Yes, calculate for 15L knapsack tank',
-          'Calculate for 20L power sprayer',
-          'Show dose for various litre tanks (5L to 200L)',
+          'Verified inputs for my crop',
+          'Calculate 15L knapsack tank dose',
+          'Check tank mix compatibility',
+          'Fertilizer & NPK schedule',
         ],
       };
     }

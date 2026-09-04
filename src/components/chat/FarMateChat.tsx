@@ -86,24 +86,77 @@ export const FarMateChat: React.FC<FarMateChatProps> = ({
     }
   };
 
+  const getDefaultMessage = (mode: string): ChatMessage => {
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    switch (mode) {
+      case 'counterfeit':
+        return {
+          id: 'init-cf',
+          sender: 'agent',
+          text: 'Hello! I am your Counterfeit Detection & Batch Verification Assistant (VERIFY-X). Upload a photo of your container or enter a batch number, CIBRC registration number, or product name to verify bottle holograms and manufacturer credentials.',
+          timestamp: time,
+          quickActions: [
+            { label: '🛡️ Check Bottle Hologram', action: 'counterfeit' },
+            { label: '🔍 Verify Batch Number', action: 'counterfeit' },
+            { label: '📋 CIBRC Registration Check', action: 'counterfeit' },
+          ],
+        };
+      case 'recommendation':
+        return {
+          id: 'init-rec',
+          sender: 'agent',
+          text: 'Hello! I am your Input Recommendation & Sprayer Math Advisor. Ask me for verified CIBRC/FCO inputs for your crop, or exact dosage calculations for your sprayer tank (5L, 10L, 12L, 15L, 16L, 20L, or 200L).',
+          timestamp: time,
+          quickActions: [
+            { label: '🧪 15L Knapsack Math', action: 'recommendation' },
+            { label: '⚡ 20L Power Sprayer Math', action: 'recommendation' },
+            { label: '💧 Multi-Tank Dosages (5L-200L)', action: 'recommendation' },
+          ],
+        };
+      case 'registry':
+        return {
+          id: 'init-reg',
+          sender: 'agent',
+          text: 'Hello! I am your Statutory Gazette Advisor. Ask me about prohibited pesticides under the Insecticides Act 1968, gazette restriction orders, or approved legal biological alternatives.',
+          timestamp: time,
+          quickActions: [
+            { label: '⚠️ Banned Pesticides List', action: 'registry' },
+            { label: '🚫 Monocrotophos Vegetables Ban', action: 'registry' },
+            { label: '🌱 Approved Bio-Alternatives', action: 'registry' },
+          ],
+        };
+      case 'pest':
+      default:
+        return {
+          id: 'init-pest',
+          sender: 'agent',
+          text: 'Hello! I am your Pest Doctor and Crop Health Specialist. Describe your crop symptoms or upload a leaf photo to diagnose diseases, identify insect pests, and get immediate organic or IPM treatments.',
+          timestamp: time,
+          quickActions: [
+            { label: '🍅 Diagnose Leaf Spots', action: 'pest' },
+            { label: '🐛 Stem Borer Control', action: 'pest' },
+            { label: '🌿 Bio-Fungicide Solutions', action: 'pest' },
+          ],
+        };
+    }
+  };
+
   const theme = getTheme();
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'init-1',
-      sender: 'agent',
-      text: 'Namaste! I am FAR[M]ATE, your unified agricultural AI companion. I track your current field context, diagnose crop diseases, verify product authenticity, and calculate safe spray tank dosages. How can I protect your harvest today?',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      quickActions: [
-        { label: '🍅 Diagnose Leaf Spots', action: 'pest' },
-        { label: '🛡️ Verify Chemical Batch', action: 'counterfeit' },
-        { label: '🧪 15L Sprayer Math', action: 'recommendation' },
-        { label: '⚠️ Banned Pesticides List', action: 'registry' },
-      ],
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [getDefaultMessage(currentMode)]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Update initial greeting when currentMode changes if user hasn't engaged in dialogue yet
+  useEffect(() => {
+    setMessages((prev) => {
+      const isInitialOnly = prev.length <= 1 && prev.every((m) => m.id.startsWith('init-'));
+      if (isInitialOnly) {
+        return [getDefaultMessage(currentMode)];
+      }
+      return prev;
+    });
+  }, [currentMode]);
 
   const t = TRANSLATIONS[language] || TRANSLATIONS.en;
 
