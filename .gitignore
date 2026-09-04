@@ -8,5 +8,5 @@ coverage/
 !.env.example
 *.zip
 scratch/
-data/
+/data/
 *.db
