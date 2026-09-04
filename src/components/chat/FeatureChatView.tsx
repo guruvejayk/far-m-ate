@@ -432,6 +432,18 @@ Recommendation: Do not spray unverified agrochemicals. Open the Agricultural Cou
       onNavigateToFeature('registry');
       return;
     }
+    if ((actionText.includes('Switch to Plant Doctor') || actionText.includes('Plant Doctor Chat')) && onNavigateToFeature) {
+      onNavigateToFeature('pest');
+      return;
+    }
+    if ((actionText.includes('Switch to Counterfeit') || actionText.includes('Counterfeit Detector')) && onNavigateToFeature) {
+      onNavigateToFeature('counterfeit');
+      return;
+    }
+    if ((actionText.includes('Switch to Recommendation') || actionText.includes('Agronomist Chatbot')) && onNavigateToFeature) {
+      onNavigateToFeature('recommendation');
+      return;
+    }
     handleSend(actionText);
   };
 

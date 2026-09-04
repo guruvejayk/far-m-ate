@@ -489,6 +489,7 @@ function FarmateWorkspace({ user, onLogout }: { user: User; onLogout: () => void
                     language={language}
                     onDiagnose={handleDiagnose}
                     onSelectTreatmentForRecommendation={handleTreatmentSelectedForRecommendation}
+                    onNavigateToCounterfeit={() => setCurrentMode('counterfeit')}
                     activeDiagnosis={activeDiagnosis}
                     setActiveDiagnosis={setActiveDiagnosis}
                     userSoilType={context.soilType}

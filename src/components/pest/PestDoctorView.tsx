@@ -17,7 +17,9 @@ import {
   Database,
   Layers,
   FlaskConical,
-  Sprout
+  Sprout,
+  User as UserIcon,
+  HeartHandshake
 } from 'lucide-react';
 import { PestDiagnosis, LanguageCode } from '../../types';
 import { TRANSLATIONS } from '../../lib/i18n/languages';
@@ -32,6 +34,7 @@ interface PestDoctorViewProps {
   language: LanguageCode;
   onDiagnose: (crop: string, imageBase64?: string, symptoms?: string, soilType?: string) => Promise<PestDiagnosis>;
   onSelectTreatmentForRecommendation: (diagnosis: PestDiagnosis, treatmentName: string) => void;
+  onNavigateToCounterfeit?: () => void;
   activeDiagnosis: PestDiagnosis | null;
   setActiveDiagnosis: (d: PestDiagnosis | null) => void;
   userSoilType?: string;
@@ -41,6 +44,7 @@ export const PestDoctorView: React.FC<PestDoctorViewProps> = ({
   language,
   onDiagnose,
   onSelectTreatmentForRecommendation,
+  onNavigateToCounterfeit,
   activeDiagnosis,
   setActiveDiagnosis,
   userSoilType,
@@ -507,6 +511,181 @@ export const PestDoctorView: React.FC<PestDoctorViewProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Universal Species & Subject Classification Banner */}
+              {activeDiagnosis.speciesClassification && (
+                <div className="space-y-3">
+                  {/* Category A: Human Detected */}
+                  {activeDiagnosis.speciesClassification.speciesCategory === 'human' && (
+                    <div className="bg-gradient-to-r from-blue-950/80 via-indigo-950/80 to-blue-900/60 border border-blue-500/50 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3">
+                      <div className="flex items-start gap-3.5">
+                        <div className="w-10 h-10 rounded-2xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-300 shrink-0">
+                          <UserIcon className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-bold text-blue-300 font-mono uppercase tracking-wider">
+                              Human Subject Detected in Photo
+                            </span>
+                            <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-blue-950 border border-blue-400/50 text-blue-200 font-bold">
+                              Zero Crop Pathology • Safe to Farm
+                            </span>
+                          </div>
+                          <h4 className="text-base font-bold text-white mt-1">
+                            {activeDiagnosis.speciesClassification.detectedSpecies}
+                          </h4>
+                          <p className="text-xs text-blue-100/90 mt-1 leading-relaxed">
+                            The photo you uploaded contains a human (farm worker / person). This is not a crop pest, leaf disease, or pathogen.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-blue-950/60 border border-blue-500/30 rounded-xl p-3 text-xs text-blue-200 space-y-1">
+                        <p className="font-bold text-blue-300 flex items-center gap-1.5">
+                          <ShieldCheck className="w-4 h-4 text-blue-400" />
+                          <span>Field Safety & PPE Guidelines:</span>
+                        </p>
+                        <p className="text-[11px] leading-relaxed text-blue-100">
+                          {activeDiagnosis.speciesClassification.managementAdvice ||
+                            'Ensure complete personal protective equipment (chemical-resistant gloves, N95 face mask, and eye protection) is worn when handling chemicals or sprayers. Never enter treated fields during the re-entry period.'}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <span className="text-[11px] text-neutral-400">
+                          To diagnose plant diseases, photograph a crop leaf or pest insect:
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3.5 py-1.5 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-md"
+                        >
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Upload Crop Photo</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Category B: Beneficial Species (Farmer's Friend) */}
+                  {activeDiagnosis.speciesClassification.speciesCategory === 'beneficial' && (
+                    <div className="bg-gradient-to-r from-emerald-950/90 via-teal-950/80 to-emerald-900/60 border border-emerald-400/60 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3">
+                      <div className="flex items-start gap-3.5">
+                        <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/50 flex items-center justify-center text-emerald-300 shrink-0">
+                          <HeartHandshake className="w-5 h-5 text-emerald-400" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-bold text-emerald-300 font-mono uppercase tracking-wider">
+                              Beneficial Species Detected
+                            </span>
+                            <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-400 text-emerald-200 font-bold">
+                              Friend of the Farmer • Pollinator & Natural Biocontrol
+                            </span>
+                          </div>
+                          <h4 className="text-base font-bold text-white mt-1">
+                            {activeDiagnosis.speciesClassification.detectedSpecies}
+                          </h4>
+                          <p className="text-xs text-emerald-100/90 mt-1 leading-relaxed">
+                            {activeDiagnosis.speciesClassification.ecologicalRole ||
+                              'This organism is beneficial to farm ecology. It feeds on aphids and whiteflies or provides vital cross-pollination.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-emerald-950/70 border border-emerald-500/40 rounded-xl p-3 text-xs text-emerald-200 space-y-1">
+                        <p className="font-bold text-emerald-300 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                          <span>Conservation Directive (DO NOT SPRAY):</span>
+                        </p>
+                        <p className="text-[11px] leading-relaxed text-emerald-100">
+                          {activeDiagnosis.speciesClassification.managementAdvice ||
+                            'This species causes ZERO crop damage. DO NOT spray broad-spectrum chemical insecticides (synthetic pyrethroids or organophosphates), as they destroy natural biocontrol agents. Conserve this population to naturally protect your crops.'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Category C: Harmful Wildlife or Destructive Vertebrate Pest */}
+                  {activeDiagnosis.speciesClassification.speciesCategory === 'harmful_wildlife' && (
+                    <div className="bg-gradient-to-r from-rose-950/90 via-red-950/80 to-rose-900/60 border border-rose-500/60 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3">
+                      <div className="flex items-start gap-3.5">
+                        <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-400/50 flex items-center justify-center text-rose-300 shrink-0">
+                          <AlertTriangle className="w-5 h-5 text-rose-400" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-bold text-rose-300 font-mono uppercase tracking-wider">
+                              Harmful Farm Wildlife / Pest Detected
+                            </span>
+                            <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-rose-950 border border-rose-400 text-rose-200 font-bold">
+                              High Crop Threat • Vertebrate Incursion
+                            </span>
+                          </div>
+                          <h4 className="text-base font-bold text-white mt-1">
+                            {activeDiagnosis.speciesClassification.detectedSpecies}
+                          </h4>
+                          <p className="text-xs text-rose-100/90 mt-1 leading-relaxed">
+                            {activeDiagnosis.speciesClassification.damageAssessment ||
+                              'Causes severe mechanical destruction by rooting up tubers, gnawing stems, or trampling vegetative canopy.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-rose-950/70 border border-rose-500/40 rounded-xl p-3 text-xs text-rose-200 space-y-1">
+                        <p className="font-bold text-rose-300 flex items-center gap-1.5">
+                          <ShieldAlert className="w-4 h-4 text-rose-400" />
+                          <span>Non-Lethal Deterrence & Crop Protection:</span>
+                        </p>
+                        <p className="text-[11px] leading-relaxed text-rose-100">
+                          {activeDiagnosis.speciesClassification.managementAdvice ||
+                            'Install solar-powered perimeter wire fencing, bio-repellent boundary barriers (chilli powder + castor oil concoction), reflective warning ribbons, or sound alarms. Protect non-target animals.'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Category D: Agrochemical Packaging Detected */}
+                  {activeDiagnosis.speciesClassification.speciesCategory === 'agrochemical_packaging' && (
+                    <div className="bg-gradient-to-r from-amber-950/90 via-orange-950/80 to-amber-900/60 border border-amber-500/60 rounded-2xl p-4 sm:p-5 shadow-lg space-y-3">
+                      <div className="flex items-start gap-3.5">
+                        <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-amber-300 shrink-0">
+                          <FlaskConical className="w-5 h-5 text-amber-400" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-bold text-amber-300 font-mono uppercase tracking-wider">
+                              Agrochemical Packaging Detected
+                            </span>
+                            <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-950 border border-amber-400 text-amber-200 font-bold">
+                              Bottle / Container • Not a Foliar Disease
+                            </span>
+                          </div>
+                          <h4 className="text-base font-bold text-white mt-1">
+                            Agrochemical Packaging / Container
+                          </h4>
+                          <p className="text-xs text-amber-100/90 mt-1 leading-relaxed">
+                            Pest Doctor specializes exclusively in plant foliar diseases and pest species. It does not inspect bottle holograms or declare chemicals counterfeit.
+                          </p>
+                        </div>
+                      </div>
+
+                      {onNavigateToCounterfeit && (
+                        <div className="pt-1 flex items-center justify-end">
+                          <button
+                            type="button"
+                            onClick={onNavigateToCounterfeit}
+                            className="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition cursor-pointer flex items-center gap-2 shadow-lg shadow-amber-950/50"
+                          >
+                            <span>Switch to Agricultural Counterfeit Detector (VERIFY-X)</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Economic Threshold Level (ETL) Banner */}
               {activeDiagnosis.economicThresholdLevel && (

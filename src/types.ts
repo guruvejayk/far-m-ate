@@ -54,6 +54,28 @@ export interface FarmerProfile {
   experienceYears?: number;
 }
 
+export type SpeciesCategory =
+  | 'human'
+  | 'beneficial'
+  | 'harmful_pest'
+  | 'harmful_wildlife'
+  | 'domestic_animal'
+  | 'agrochemical_packaging'
+  | 'crop_pathology'
+  | 'non_farm_object';
+
+export interface SpeciesClassification {
+  isCropOrPest: boolean;
+  detectedSpecies: string;
+  scientificName?: string;
+  speciesCategory: SpeciesCategory;
+  isHarmfulToFarm: boolean;
+  ecologicalRole?: string;
+  damageAssessment?: string;
+  managementAdvice?: string;
+  redirectFeature?: 'counterfeit' | 'pest' | 'recommendation';
+}
+
 export interface PestDiagnosis {
   id: string;
   crop: string;
@@ -75,6 +97,7 @@ export interface PestDiagnosis {
   soilCorrelation?: string;
   benchmarkGrounding?: string;
   explicitlyBannedChemicals?: string[];
+  speciesClassification?: SpeciesClassification;
   imageUrl?: string;
   timestamp: string;
 }

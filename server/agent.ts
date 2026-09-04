@@ -114,7 +114,43 @@ MANDATORY RESPONSE & FORMATTING RULES:
       Offer the choice: "Would you like the mixing instructions or dosage calculations for your sprayer tank (5L, 10L, 12L, 15L, 16L, 20L, or 200L)?"
     - If no pest scan has occurred yet in context, politely say that no recent scan was found in the session, and invite the farmer to either upload a leaf photo in Pest Doctor or describe their symptoms right now.
     - If the farmer asks in Counterfeit Detection about verifying a product recommended in the Recommendation chat, reference the recent recommended product.
-    - If the farmer in Pest Doctor asks if their recently verified product can be used, reference the recent packaging verification status.`;
+    - If the farmer in Pest Doctor asks if their recently verified product can be used, reference the recent packaging verification status.
+11. STRICT SPECIALIZED FEATURE ROLE ENFORCEMENT & ANTI-CROSS-CALLING:
+    Every feature AI chat has a dedicated, non-overlapping domain and MUST maintain strict boundaries:
+    - Counterfeit Sentinel (VERIFY-X) (activeFeature === 'counterfeit'):
+      Focuses exclusively on agrochemical packaging, bottle labels, 3D holograms, QR/barcodes, CIBRC Section 9(3) validity, FCO compliance, batch numbers, manufacturer legitimacy, and genuine vs fake chemical packaging.
+      CRITICAL BOUNDARY: NEVER diagnose crop pathology, plant diseases, foliar leaf spots, or insect pests. NEVER call a crop, leaf, insect pest, beneficial animal, or human "counterfeit"!
+      If a user asks a pest question or uploads a leaf/crop photo in Counterfeit chat:
+      Politely decline and redirect: "I am the Agricultural Counterfeit Sentinel (VERIFY-X). I specialize exclusively in verifying agrochemical packaging, bottle seals, 3D holograms, and statutory CIBRC authenticity. For foliar disease diagnosis, leaf spots, or insect pest identification, please switch to the Plant Doctor / Pest Detection chat. I do not diagnose plant diseases or call crops counterfeit."
+    - Plant Doctor / Pest Diagnostic (activeFeature === 'pest'):
+      Focuses exclusively on plant pathology, crop diseases, foliar fungal/bacterial/viral infections, weeds, farm species identification (humans, beneficial insects, wild pests, livestock), soil correlation, and integrated pest management.
+      CRITICAL BOUNDARY: NEVER inspect bottle holograms, verify pesticide batch numbers, or call an agrochemical product "counterfeit"!
+      If a user asks about bottle verification, fake chemicals, or hologram scans in Pest Doctor:
+      Politely decline and redirect: "I am the Plant Doctor & Pest Diagnostic specialist. I specialize in foliar diseases, plant pathology, and crop health. To check if an agrochemical bottle, barcode, or hologram is authentic or counterfeit, please switch to the Agricultural Counterfeit Detector (VERIFY-X) chat. I do not verify bottle packaging or call products counterfeit."
+    - Recommendation AI (activeFeature === 'recommendation'):
+      Focuses exclusively on verified product inputs, sprayer dosage math, knapsack tank calculations (5L, 10L, 12L, 15L, 16L, 20L, 200L), PPE safety, and spray schedules.
+    - Gazette / Banned Registry (activeFeature === 'registry'):
+      Focuses exclusively on statutory banned pesticides, Gazette notifications, and legal compliance under the Insecticides Act 1968.
+12. UNIVERSAL SPECIES DETECTION & FARM IMPACT DISTINCTION:
+    When an image is analyzed in the visual detector or Plant Doctor chat, classify what is in the photo into one of these distinct categories:
+    - Human Being (Farmer / Field Personnel / Child / Person):
+      State clearly: "The photo you uploaded contains a human (farm personnel / person). This is not a crop disease or plant pest." Provide field safety / PPE reminders (especially around agrochemical storage/mixing) and advise the user to upload a photo of a plant leaf, crop stem, or farm pest.
+    - Beneficial Species (Farmer's Friend / Pollinator / Natural Biocontrol):
+      Identify the species (e.g. Honeybee Apis cerana, Ladybird beetle Coccinellidae, Earthworm Pheretima posthuma, Spider Araneae, Praying Mantis Mantodea, Dragonfly).
+      State clearly: "The photo you uploaded contains [Species Name], which is a beneficial species to the farm."
+      Explain its ecological contribution (e.g. natural predation of aphids/whiteflies, cross-pollination boosting crop yields, soil aeration).
+      Explicitly advise: "This species is NOT harmful to your farm. Do not spray chemical pesticides; preserve and protect this species to maintain natural biocontrol."
+    - Harmful Crop Pest or Wild Animal (Agricultural Destroyer):
+      Identify the species (e.g. Wild Boar Sus scrofa, Nilgai / Blue Bull Boselaphus tragocamelus, Field Rat / Rodent Bandicota bengalensis, Fall Armyworm Spodoptera frugiperda, Stem Borer, Whiteflies, Locusts, Termites).
+      State clearly: "The photo you uploaded contains [Species Name], which is a harmful species / pest to your farm."
+      Describe the specific crop threat and economic damage. Provide needed non-lethal deterrents (solar power fencing, organic bio-repellents like castor-chilli concoctions for wild boar/nilgai, PVC burrow baiting for rodents, or CIBRC-approved bio/chemical IPM remedies for insect pests).
+    - Domestic Animal / Livestock / Pet:
+      Identify the species (e.g. Cow / Cattle Bos indicus, Goat Capra hircus, Sheep, Dog, Cat).
+      State: "The photo you uploaded contains a domestic animal ([Species Name]). This is not a crop pathogen." Note farm precautions (keeping grazing livestock away from freshly sprayed crops until the re-entry period has elapsed).
+    - Agrochemical Packaging / Bottle:
+      State: "The photo you uploaded contains an agrochemical product container/bottle. Pest Doctor does not verify chemical authenticity or call products counterfeit. Please switch to the Agricultural Counterfeit Detector (VERIFY-X) tab to verify this bottle's 3D hologram and registration."
+    - Crop Leaf / Plant Pathology:
+      Diagnose the foliar disease or physiological disorder with symptoms, ETL, soil correlation, and CIBRC treatments.`;
 
   async chat(message: string, context: FarmContext = {}, language: string = 'en', imageBase64?: string) {
     const ai = getGeminiClient();
@@ -249,6 +285,37 @@ INSTRUCTIONS:
       };
     }
 
+    // 1. Strict Role Boundary Interceptions for Text Queries
+    const lowerMsg = (message || '').toLowerCase();
+    const isPestQuery = /leaf spot|yellow leaves|leaf blight|wilt|powdery mildew|caterpillar|stem borer|whitefly|aphid|leaf curl|pest attack|disease on leaves|fungus on plant|leaf disease/i.test(lowerMsg);
+    const isCounterfeitQuery = /is this fake|is this counterfeit|hologram|verify bottle|check batch number|verify pesticide|fake product|genuine bottle|cibrc registration check|bottle hologram/i.test(lowerMsg);
+
+    if (context.activeFeature === 'counterfeit' && isPestQuery && !isCounterfeitQuery) {
+      return {
+        text: `I am your dedicated Counterfeit & Product Authenticity Sentinel (VERIFY-X). I specialize exclusively in inspecting agrochemical packaging, bottle seals, 3D holograms, and statutory CIBRC authenticity. For foliar disease diagnosis, leaf spots, or insect pest identification, please switch to the Plant Doctor / Pest Detection chat. I do not diagnose plant diseases or call crops counterfeit.`,
+        context,
+        source: 'farmate-role-boundary',
+        quickActions: [
+          'Switch to Plant Doctor Chat',
+          'Inspect bottle hologram in VERIFY-X',
+          'Verify a pesticide batch',
+        ],
+      };
+    }
+
+    if (context.activeFeature === 'pest' && isCounterfeitQuery && !isPestQuery) {
+      return {
+        text: `I am your Plant Doctor & Pest Diagnostic specialist. I specialize in foliar diseases, plant pathology, and crop health. To check if an agrochemical bottle, barcode, or hologram is authentic or counterfeit, please switch to the Agricultural Counterfeit Detector (VERIFY-X) chat. I do not verify bottle packaging or call products counterfeit.`,
+        context,
+        source: 'farmate-role-boundary',
+        quickActions: [
+          'Switch to Counterfeit Detector',
+          'Diagnose leaf spots',
+          'Check beneficial insects',
+        ],
+      };
+    }
+
     if (ai) {
       let contents: any = promptText;
       if (imageBase64) {
@@ -259,8 +326,30 @@ INSTRUCTIONS:
             data: cleanBase64,
           },
         };
+
+        let visionInstructions = '';
+        if (context.activeFeature === 'counterfeit') {
+          visionInstructions = `\n\n[CRITICAL DIRECTIVE - COUNTERFEIT SENTINEL ROLE BOUNDARY]:
+Visually inspect this exact packaging photo: read the label, manufacturer, active ingredient, CIBRC registration number, batch stamp, expiry date, toxicity color triangle, and holographic seal. State explicitly if this specific product is genuine, counterfeit, tampered, or banned, and why.
+MANDATORY BOUNDARY: DO NOT diagnose plant foliar diseases or pests, and DO NOT call a plant, leaf, crop, insect, animal, or human "counterfeit"!
+If this image is a plant leaf, crop, insect, animal, or person rather than agrochemical packaging:
+State: "I am your dedicated Counterfeit & Product Authenticity Sentinel (VERIFY-X). I specialize exclusively in verifying agrochemical packaging, bottles, 3D holograms, and CIBRC authenticity. For crop disease diagnosis, leaf spots, or insect pest identification, please switch to the Plant Doctor / Pest Detection chat."`;
+        } else if (context.activeFeature === 'pest') {
+          visionInstructions = `\n\n[CRITICAL DIRECTIVE - PLANT DOCTOR & UNIVERSAL SPECIES DETECTION]:
+Analyze the subject in this image:
+1. If HUMAN: State clearly: "The photo you uploaded contains a human (farm personnel / person). This is not a crop disease or plant pest." Provide field safety/PPE guidance and ask the farmer to upload a photo of a crop leaf or farm pest instead.
+2. If BENEFICIAL SPECIES (e.g. Honeybee, Ladybird beetle, Earthworm, Spider, Praying Mantis, Dragonfly): State clearly: "The photo you uploaded contains [Species Name], which is a beneficial species and a natural friend to your farm." Explain its role (pollination, natural predation of aphids) and advise NOT spraying chemical pesticides to preserve it.
+3. If HARMFUL SPECIES / WILD PEST (e.g. Wild Boar, Rodents/Rats, Nilgai, Locusts, Fall Armyworm, Stem Borer): State clearly: "The photo you uploaded contains [Species Name], which is a harmful species / pest to the farm." Detail the specific crop threat and recommend needed non-lethal deterrents (solar fencing, bio-repellents) or IPM controls.
+4. If DOMESTIC ANIMAL / LIVESTOCK (e.g. Cow/Cattle, Goat, Sheep, Dog, Cat): State that a domestic animal is detected, clarify it is not a foliar pathogen, and note grazing safety around sprayed fields.
+5. If AGROCHEMICAL PACKAGING / BOTTLE: State: "The photo you uploaded contains an agrochemical product packaging/bottle. Pest Doctor does not verify chemical authenticity or call products counterfeit. Please switch to the Agricultural Counterfeit Detector (VERIFY-X) tab to verify this bottle's 3D hologram and registration."
+6. If CROP LEAF / PLANT PATHOLOGY: Diagnose the foliar disease, symptoms, ETL, soil correlation, and CIBRC treatments.
+MANDATORY BOUNDARY: NEVER call an agrochemical product "counterfeit"!`;
+        } else {
+          visionInstructions = `\n\n[CRITICAL DIRECTIVE: The farmer has attached an image. If the image is agrochemical packaging, inspect label, batch, and hologram. If it depicts a human, beneficial fauna, harmful pest, domestic animal, or crop leaf, identify the species and explain whether it is harmful or beneficial to the farm.]`;
+        }
+
         const textPart = {
-          text: promptText + `\n\n[CRITICAL: The farmer has attached an image. If active feature is 'counterfeit' or query relates to chemical/packaging verification, visually inspect this exact packaging photo: read the label, manufacturer, active ingredient, CIBRC registration number, batch stamp, expiry date, toxicity color triangle, and holographic seal. State explicitly if this specific product is genuine, counterfeit, tampered, or banned, and why. If active feature is 'pest', diagnose the plant leaf disease visible in this image.]`,
+          text: promptText + visionInstructions,
         };
         contents = { parts: [imagePart, textPart] };
       }
@@ -351,34 +440,54 @@ Banned chemicals to warn against: ${matchedProfile.explicitlyBannedChemicals.joi
           : `Grounded in PlantVillage (54k classes), IP102 (102 insect classes), ICAR-NBAIR and CIBRC.`;
 
         const textPart = {
-          text: `You are FAR[M]ATE Plant Pathology AI Vision, grounded in the PlantVillage 54k benchmark, IP102 75k insect pest dataset, PlantDoc field pathology benchmark, ICAR-NBAIR National Agricultural Insect Repository, and CIBRC Statutory Regulations.
+          text: `You are FAR[M]ATE Plant Pathology AI Vision & Farm Species Diagnostic Engine, grounded in PlantVillage (54k benchmark), IP102 (75k insect pest dataset), ICAR-NBAIR National Agricultural Insect Repository, Wildlife & Vertebrate Farm Ecology, and CIBRC Statutory Regulations.
 
-Analyze this crop leaf/plant image for crop: "${cropName || 'General Crop'}".
+Analyze this uploaded image for crop context: "${cropName || 'General Crop'}".
 Farmer notes / symptoms: "${symptomsDescription || 'None'}".
 Farmer soil type: "${soilType || 'Not specified'}".
 
+FIRST: CLASSIFY THE SPECIES / SUBJECT IN THE IMAGE:
+Determine which category the primary subject belongs to:
+1. "human": A person, farmer, worker, child, face, hands, selfie, or bystander. (NOT a crop disease or pest).
+2. "beneficial": A beneficial insect, pollinator, or natural biocontrol organism (e.g. Honeybee Apis cerana, Ladybird Beetle Coccinella, Earthworm, Spider, Praying Mantis, Dragonfly). Beneficial to farm ecology; causes ZERO crop damage.
+3. "harmful_wildlife": A harmful wild animal or vertebrate pest (e.g. Wild Boar Sus scrofa, Nilgai / Blue Bull, Field Rat / Rodent Bandicota, Monkey, Porcupine). Causes severe crop destruction.
+4. "harmful_pest": An agricultural insect pest, caterpillar, borer, bug, mite, nematode, or mollusk (e.g. Fall Armyworm, Stem Borer, Whitefly, Aphid, Thrips, Locust, Termite, Snails).
+5. "domestic_animal": Domestic farm animal or pet (e.g. Cow/Cattle Bos indicus, Buffalo, Goat, Sheep, Dog, Cat). (NOT a foliar pathogen).
+6. "agrochemical_packaging": Agrochemical bottle, fertilizer sack, pesticide container, seed packet, or hologram. (Should be redirected to Counterfeit Detector).
+7. "crop_pathology": Crop leaf, stem, fruit, or root exhibiting foliar disease, blight, spot, rot, rust, mildew, or nutrient deficiency.
+8. "non_farm_object": Everyday object unrelated to farming.
+
 ${benchmarkReference}
 
-Diagnose the specific pest or fungal/bacterial/viral disease.
-Return a JSON object with:
+Return a JSON object conforming strictly to:
 {
+  "speciesClassification": {
+    "isCropOrPest": boolean,
+    "detectedSpecies": "Common name of detected species/subject (e.g. 'Human (Farmer)', 'Ladybird Beetle', 'Wild Boar', 'Honeybee', 'Indian Cattle', 'Pesticide Bottle', 'Tomato Early Blight')",
+    "scientificName": "Binomial scientific name if applicable (e.g. 'Homo sapiens', 'Coccinella septempunctata', 'Sus scrofa', 'Apis cerana', 'Alternaria solani')",
+    "speciesCategory": "human" | "beneficial" | "harmful_wildlife" | "harmful_pest" | "domestic_animal" | "agrochemical_packaging" | "crop_pathology" | "non_farm_object",
+    "isHarmfulToFarm": boolean,
+    "ecologicalRole": "Detailed role or description (e.g. 'Farm personnel / worker', 'Natural predator of aphids & whiteflies', 'Vertebrate pest uprooting root systems', 'Agrochemical container')",
+    "damageAssessment": "Explicit statement of crop damage potential, or confirmation that it causes zero damage",
+    "managementAdvice": "Clear, actionable advice: For humans -> PPE advice; For beneficials -> DO NOT SPRAY, preserve species; For harmful wildlife -> non-lethal solar fencing/repellents; For harmful pests -> ETL & CIBRC treatment; For packaging -> Redirect to Counterfeit Detector",
+    "redirectFeature": "counterfeit" | "pest" | "recommendation" | null
+  },
   "crop": "${cropName || 'Crop'}",
-  "diseaseName": "Name of disease/pest",
-  "scientificName": "Binomial nomenclature",
-  "confidence": 94,
+  "diseaseName": "Subject or Disease Name (e.g. 'Human (Farm Personnel)', 'Ladybird Beetle (Beneficial Predatory Insect)', 'Wild Boar (Vertebrate Farm Pest)', 'Agrochemical Packaging', or disease name)",
+  "scientificName": "Scientific nomenclature",
+  "confidence": 95,
   "severity": "low" | "moderate" | "high" | "critical",
-  "symptoms": ["symptom 1", "symptom 2", "symptom 3"],
-  "likelyCause": "Environmental cause (temperature, relative humidity, dew period)",
-  "economicThresholdLevel": "ETL trigger numbers and action threshold",
-  "soilCorrelation": "Explanation of how ${soilType || 'this soil type'} influences pathogen infection or root health",
-  "recommendedAction": "Immediate agricultural action, pruning height, sanitation",
-  "safetyPrecautions": ["Mandatory PPE", "Pre-harvest interval"],
+  "symptoms": ["Key visible markers or observations"],
+  "likelyCause": "Environmental cause or ecological context",
+  "economicThresholdLevel": "ETL trigger or threshold details",
+  "soilCorrelation": "Soil correlation or habitat note",
+  "recommendedAction": "Immediate agricultural action required",
+  "safetyPrecautions": ["Mandatory PPE", "Conservation note", "Safe handling"],
   "treatmentOptions": [
-    { "name": "Bio-fungicide or bio-insecticide with exact 15L knapsack dilution", "type": "bio", "verified": true, "cibrcApproved": true },
-    { "name": "Registered CIBRC chemical alternative with exact 15L knapsack dilution", "type": "chemical", "verified": true, "cibrcApproved": true }
+    { "name": "Bio-fungicide, organic repellent, or CIBRC formulation with exact dilution", "type": "bio", "verified": true, "cibrcApproved": true }
   ],
-  "explicitlyBannedChemicals": ["Statutorily banned chemicals under Indian law for this crop"],
-  "benchmarkGrounding": "Grounded in PlantVillage (54k), IP102 (75k), ICAR-NBAIR & CIBRC"
+  "explicitlyBannedChemicals": [],
+  "benchmarkGrounding": "Grounded in PlantVillage, IP102, ICAR-NBAIR & CIBRC"
 }`,
         };
 
@@ -396,8 +505,20 @@ Return a JSON object with:
 
             if (response.text) {
               const parsed = JSON.parse(response.text);
+              const speciesClass = parsed.speciesClassification || {
+                isCropOrPest: true,
+                detectedSpecies: parsed.diseaseName || parsed.crop || 'Foliar Plant Pathology',
+                scientificName: parsed.scientificName || '',
+                speciesCategory: 'crop_pathology',
+                isHarmfulToFarm: true,
+                ecologicalRole: 'Plant foliar infection / pathogen',
+                damageAssessment: 'Causes chlorosis, necrosis, and canopy yield reduction',
+                managementAdvice: parsed.recommendedAction || 'Apply CIBRC approved bio/chemical treatments',
+              };
+
               return {
                 ...parsed,
+                speciesClassification: speciesClass,
                 id: 'diag-' + Date.now(),
                 timestamp: new Date().toISOString(),
                 source: 'gemini-vision',
@@ -421,6 +542,178 @@ Return a JSON object with:
       }
     }
 
+    const lowerCrop = (cropName || '').toLowerCase().trim();
+    const lowerSymptoms = (symptomsDescription || '').toLowerCase().trim();
+    const combinedDesc = `${lowerCrop} ${lowerSymptoms}`;
+
+    // 1. Human Detection in fallback
+    if (combinedDesc.includes('human') || combinedDesc.includes('person') || combinedDesc.includes('man') || combinedDesc.includes('woman') || combinedDesc.includes('farmer') || combinedDesc.includes('worker') || combinedDesc.includes('selfie') || combinedDesc.includes('face') || combinedDesc.includes('child')) {
+      return {
+        id: 'diag-' + Date.now(),
+        crop: 'Human (Personnel)',
+        diseaseName: 'Human (Farmer / Field Personnel)',
+        scientificName: 'Homo sapiens',
+        confidence: 99,
+        severity: 'low' as const,
+        symptoms: ['Human subject detected in farm environment', 'Zero foliar plant pathology'],
+        likelyCause: 'Farmer or agricultural personnel photograph submitted for inspection',
+        economicThresholdLevel: 'N/A (Human subject causes zero foliar crop pathology)',
+        soilCorrelation: 'N/A',
+        benchmarkGrounding: 'FAR[M]ATE Agro-Personnel Safety Protocol',
+        recommendedAction: 'Ensure full personal protective equipment (PPE: nitrile gloves, N95 face mask, eye protection) is worn when handling chemicals or preparing spray tanks. Please upload a clear photo of a crop leaf or pest insect for plant pathology diagnosis.',
+        safetyPrecautions: [
+          'Always wear PPE when handling agrochemicals.',
+          'Never enter freshly sprayed fields during the re-entry interval (REI).',
+          'Store all pesticides locked away from children.',
+        ],
+        treatmentOptions: [],
+        speciesClassification: {
+          isCropOrPest: false,
+          detectedSpecies: 'Human (Farm Personnel / Farmer)',
+          scientificName: 'Homo sapiens',
+          speciesCategory: 'human',
+          isHarmfulToFarm: false,
+          ecologicalRole: 'Farm operator, cultivator, or field personnel',
+          damageAssessment: 'Zero crop pathology. Human subject detected.',
+          managementAdvice: 'Wear personal protective equipment (PPE) during chemical handling. To diagnose crop diseases, please photograph a plant leaf or farm insect.',
+        },
+        timestamp: new Date().toISOString(),
+        source: 'farmate-species-engine',
+      };
+    }
+
+    // 2. Beneficial Fauna Detection in fallback (Ladybird, Honeybee, Earthworm, Spider, Mantis, Dragonfly)
+    if (combinedDesc.includes('ladybird') || combinedDesc.includes('ladybug') || combinedDesc.includes('honeybee') || combinedDesc.includes('bee') || combinedDesc.includes('earthworm') || combinedDesc.includes('spider') || combinedDesc.includes('mantis') || combinedDesc.includes('dragonfly')) {
+      const isBee = combinedDesc.includes('bee');
+      const isWorm = combinedDesc.includes('worm');
+      const name = isBee ? 'Honeybee' : isWorm ? 'Earthworm' : 'Ladybird Beetle (Coccinellid)';
+      const sci = isBee ? 'Apis cerana indica' : isWorm ? 'Pheretima posthuma' : 'Coccinella septempunctata';
+      const role = isBee
+        ? 'Vital agricultural pollinator boosting crop fruit-set and yields by 20-30%'
+        : isWorm
+        ? 'Soil engineer aerating rhizosphere and producing nutrient-rich vermicast'
+        : 'Voracious natural predator consuming 40-50 aphids and whiteflies daily';
+
+      return {
+        id: 'diag-' + Date.now(),
+        crop: cropName || 'General Farm',
+        diseaseName: `${name} (Beneficial Farm Organism)`,
+        scientificName: sci,
+        confidence: 96,
+        severity: 'low' as const,
+        symptoms: ['Beneficial predator / pollinator active on foliage or soil', 'Zero foliar damage'],
+        likelyCause: 'Natural biological diversity and beneficial farm fauna',
+        economicThresholdLevel: 'Beneficial threshold active. Chemical spraying strictly counter-indicated.',
+        soilCorrelation: 'Beneficial fauna presence indicates healthy ecological balance.',
+        benchmarkGrounding: 'ICAR-NBAIR National Beneficial Insect Repository',
+        recommendedAction: `Preserve and protect this species! This organism is a beneficial friend of the farmer. DO NOT SPRAY broad-spectrum insecticides (synthetic pyrethroids or organophosphates), as they destroy natural biocontrol agents.`,
+        safetyPrecautions: [
+          'Do NOT spray chemical insecticides while beneficial insects are actively foraging.',
+          'Adopt bio-friendly neem formulations or conserve predatory habitats.',
+        ],
+        treatmentOptions: [
+          { name: 'Conservation Biocontrol (Preserve predatory habitat - No spray needed)', type: 'organic', verified: true, cibrcApproved: true },
+        ],
+        speciesClassification: {
+          isCropOrPest: true,
+          detectedSpecies: `${name} (${sci})`,
+          scientificName: sci,
+          speciesCategory: 'beneficial',
+          isHarmfulToFarm: false,
+          ecologicalRole: role,
+          damageAssessment: 'Beneficial organism causes ZERO crop damage. Essential for pollination or natural biological pest suppression.',
+          managementAdvice: 'Strictly avoid spraying chemical insecticides. Preserve this beneficial population to maintain natural pest control.',
+        },
+        timestamp: new Date().toISOString(),
+        source: 'farmate-species-engine',
+      };
+    }
+
+    // 3. Harmful Wildlife / Vertebrate Pests (Wild Boar, Nilgai, Rodent, Monkey)
+    if (combinedDesc.includes('boar') || combinedDesc.includes('pig') || combinedDesc.includes('nilgai') || combinedDesc.includes('blue bull') || combinedDesc.includes('rat') || combinedDesc.includes('rodent') || combinedDesc.includes('monkey')) {
+      const isBoar = combinedDesc.includes('boar') || combinedDesc.includes('pig');
+      const isNilgai = combinedDesc.includes('nilgai') || combinedDesc.includes('blue bull');
+      const isRat = combinedDesc.includes('rat') || combinedDesc.includes('rodent');
+      const name = isBoar ? 'Wild Boar' : isNilgai ? 'Nilgai (Blue Bull)' : isRat ? 'Field Rodent / Rat' : 'Rhesus Macaque (Monkey)';
+      const sci = isBoar ? 'Sus scrofa' : isNilgai ? 'Boselaphus tragocamelus' : isRat ? 'Bandicota bengalensis' : 'Macaca mulatta';
+      const threat = isBoar
+        ? 'Nocturnal rooting causing extensive uprooting of tubers, roots, and lodging of crops.'
+        : isNilgai
+        ? 'Heavy grazing on young vegetative shoots and trampling of large field areas.'
+        : 'Burrowing under roots, chewing stems at ground level, and feeding on maturing grain.';
+
+      return {
+        id: 'diag-' + Date.now(),
+        crop: cropName || 'General Crop',
+        diseaseName: `${name} (Harmful Farm Vertebrate / Wildlife)`,
+        scientificName: sci,
+        confidence: 94,
+        severity: 'high' as const,
+        symptoms: ['Physical trampling, chewing of stems, or uprooted tubers', 'Tracks and droppings'],
+        likelyCause: 'Incursion of wild vertebrate pests from adjacent forest or uncultivated boundaries',
+        economicThresholdLevel: 'Any visible crop damage warrants immediate physical barrier or deterrent installation.',
+        soilCorrelation: 'Disturbed loose soil facilitates burrowing and rooting.',
+        benchmarkGrounding: 'Wildlife Damage Management & ICAR Agro-Ecology',
+        recommendedAction: `Install non-lethal deterrent measures immediately: Solar-powered perimeter wire fencing, organic bio-repellents (chilli powder + castor oil concoctions along boundary), reflective warning ribbons, or sound alarms. For rodents, install PVC burrow bait stations with bromadiolone.`,
+        safetyPrecautions: [
+          'Use only legal, non-lethal deterrents compliant with Indian Wildlife Protection Act.',
+          'Place rodenticide strictly inside burrow stations to protect non-target livestock and owls.',
+        ],
+        treatmentOptions: [
+          { name: 'Solar Perimeter Fencing / Bio-Acoustic Deterrent', type: 'organic', verified: true, cibrcApproved: true },
+          { name: 'Organic Bio-Repellent Barrier (Chilli-Castor Oil Spray on Borders)', type: 'organic', verified: true, cibrcApproved: true },
+          { name: 'Tamper-Proof Burrow Bait Station (Bromadiolone 0.005% RB in PVC Pipes)', type: 'chemical', verified: true, cibrcApproved: true },
+        ],
+        speciesClassification: {
+          isCropOrPest: true,
+          detectedSpecies: `${name} (${sci})`,
+          scientificName: sci,
+          speciesCategory: 'harmful_wildlife',
+          isHarmfulToFarm: true,
+          ecologicalRole: 'Vertebrate pest causing mechanical destruction, trampling, or feeding on crops',
+          damageAssessment: threat,
+          managementAdvice: 'Deploy non-lethal deterrents (solar fence, organic bio-repellents) or burrow bait stations. Do not harm protected wildlife.',
+        },
+        timestamp: new Date().toISOString(),
+        source: 'farmate-species-engine',
+      };
+    }
+
+    // 4. Agrochemical Packaging Detected in Pest Doctor
+    if (combinedDesc.includes('bottle') || combinedDesc.includes('pesticide bottle') || combinedDesc.includes('chemical pack') || combinedDesc.includes('hologram') || combinedDesc.includes('packaging')) {
+      return {
+        id: 'diag-' + Date.now(),
+        crop: 'Agrochemical Input',
+        diseaseName: 'Agrochemical Packaging / Bottle Detected',
+        scientificName: 'Agrochemical Container',
+        confidence: 98,
+        severity: 'low' as const,
+        symptoms: ['Chemical container, bottle cap, or label photographed', 'No plant leaf pathology'],
+        likelyCause: 'Farmer photographed an agrochemical packaging item in the Plant Doctor tool',
+        economicThresholdLevel: 'N/A',
+        soilCorrelation: 'N/A',
+        benchmarkGrounding: 'CIBRC Packaging & Labeling Standards',
+        recommendedAction: 'Pest Doctor does not inspect bottle packaging or call chemicals counterfeit. Please switch to the Agricultural Counterfeit Detector (VERIFY-X) tab to verify 3D holograms, CIBRC registration codes, and batch authenticity.',
+        safetyPrecautions: [
+          'Verify batch numbers via VERIFY-X before field application.',
+          'Never use unverified or suspicious chemicals.',
+        ],
+        treatmentOptions: [],
+        speciesClassification: {
+          isCropOrPest: false,
+          detectedSpecies: 'Agrochemical Packaging / Bottle',
+          speciesCategory: 'agrochemical_packaging',
+          isHarmfulToFarm: false,
+          ecologicalRole: 'Pesticide, fertilizer, or agrochemical container',
+          damageAssessment: 'Product container detected. Requires authenticity verification in VERIFY-X.',
+          managementAdvice: 'Pest Doctor specializes in plant pathology. Please switch to the Agricultural Counterfeit Detector (VERIFY-X) to verify this bottle.',
+          redirectFeature: 'counterfeit',
+        },
+        timestamp: new Date().toISOString(),
+        source: 'farmate-species-engine',
+      };
+    }
+
     // Agronomic Ground-Truth Database Match across all 24 major crops & symptoms
     if (matchedProfile) {
       const diag = toPestDiagnosis(matchedProfile);
@@ -432,12 +725,18 @@ Return a JSON object with:
       diag.economicThresholdLevel = `${matchedProfile.economicThresholdLevel.etlTrigger}. Action: ${matchedProfile.economicThresholdLevel.actionRequired}`;
       diag.benchmarkGrounding = `Grounded in ${matchedProfile.benchmarkSource}, ICAR-NBAIR & CIBRC`;
       diag.explicitlyBannedChemicals = matchedProfile.explicitlyBannedChemicals;
+      diag.speciesClassification = {
+        isCropOrPest: true,
+        detectedSpecies: `${matchedProfile.diseaseName} on ${matchedProfile.crop}`,
+        scientificName: matchedProfile.scientificName,
+        speciesCategory: 'crop_pathology',
+        isHarmfulToFarm: true,
+        ecologicalRole: 'Plant foliar infection / pathogen',
+        damageAssessment: 'Causes leaf spots, chlorosis, and yield decline',
+        managementAdvice: matchedProfile.treatmentOptions[0]?.name || 'Apply recommended bio/chemical treatment',
+      };
       return diag;
     }
-
-    // Fallback match across DEMO_PEST_SCENARIOS
-    const lowerCrop = (cropName || '').toLowerCase().trim();
-    const lowerSymptoms = (symptomsDescription || '').toLowerCase().trim();
 
     let matchedScenario = DEMO_PEST_SCENARIOS.find((sc) => {
       const scCrop = sc.crop.toLowerCase();
@@ -459,6 +758,16 @@ Return a JSON object with:
         timestamp: new Date().toISOString(),
         source: 'farmate-agronomic-registry',
         benchmarkGrounding: 'Grounded in PlantVillage, IP102 & ICAR-NBAIR',
+        speciesClassification: {
+          isCropOrPest: true,
+          detectedSpecies: matchedScenario.diseaseName,
+          scientificName: matchedScenario.scientificName,
+          speciesCategory: 'crop_pathology',
+          isHarmfulToFarm: true,
+          ecologicalRole: 'Plant foliar infection / pathogen',
+          damageAssessment: 'Causes leaf spots, chlorosis, and yield decline',
+          managementAdvice: matchedScenario.recommendedAction,
+        },
       };
     }
 
@@ -493,6 +802,16 @@ Return a JSON object with:
         'Observe pre-harvest interval before harvesting produce.',
       ],
       treatmentOptions: relevantVerified,
+      speciesClassification: {
+        isCropOrPest: true,
+        detectedSpecies: 'Foliar Spot & Moisture Stress Complex',
+        scientificName: 'Alternaria / Cercospora Complex',
+        speciesCategory: 'crop_pathology',
+        isHarmfulToFarm: true,
+        ecologicalRole: 'Foliar fungal pathogen complex',
+        damageAssessment: 'Damages photosynthetic leaf area and reduces fruit/grain filling',
+        managementAdvice: 'Prune infected canopy and apply bio-fungicide during early morning',
+      },
       timestamp: new Date().toISOString(),
       source: 'farmate-agronomic-registry',
     };
